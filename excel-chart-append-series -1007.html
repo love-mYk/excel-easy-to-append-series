@@ -1,0 +1,1080 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="author" content="<mYk>">
+<title>图表追加系列</title>
+<style>
+:root{
+  --paper:#E7ECEF; --card:#FBFCFC; --ink:#15212A; --mute:#5B6B76; --rule:#C7D2D8; --soft:#EEF2F4;
+  --accent:#0B5C6B; --accent-d:#084854; --g:#B7791F; --x:#2B6CB0; --y:#2F855A; --warn:#A8460B; --err:#B42318;
+  --font:"HarmonyOS Sans SC","PingFang SC","Noto Sans SC","Source Han Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{background:var(--paper)}
+body{margin:0;font:14px/1.55 var(--font);color:var(--ink);background:var(--paper);min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:14px 24px;background:var(--ink);color:#EAF1F4}
+.top h1{margin:0;font-size:17px;font-weight:650;letter-spacing:.02em}
+.top .sp{flex:1}
+.top #fname{color:#A9BAC4;font-size:13px;max-width:44ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 14px;border:1px solid var(--rule);border-radius:6px;background:var(--card);cursor:pointer;font-weight:550}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-d)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.top .btn{background:transparent;border-color:#46606E;color:#EAF1F4}
+.top .btn:hover{border-color:#9FD0D9}
+.btn.sm{padding:3px 9px;font-size:12.5px;font-weight:500}
+input[type=file]{display:none}
+
+#empty{max-width:560px;margin:12vh auto;padding:40px 32px;border:2px dashed #9FB0BA;border-radius:10px;text-align:center;color:var(--mute);background:rgba(255,255,255,.4)}
+#empty h2{margin:0 0 8px;color:var(--ink);font-size:20px}
+#empty p{margin:6px 0}
+body.drag #empty,body.drag .cols{outline:3px dashed var(--accent);outline-offset:-6px}
+.cols{display:none;grid-template-columns:320px minmax(0,1fr) 330px;gap:16px;padding:16px 24px 40px;align-items:start}
+body.ready .cols{display:grid}
+body.ready #empty{display:none}
+.panel{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:16px}
+.panel h2{margin:0 0 12px;font-size:15px;display:flex;align-items:baseline;gap:8px}
+.panel h2 .n{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;font-weight:600}
+.panel h3{margin:14px 0 6px;font-size:12.5px;color:var(--mute);font-weight:600}
+.hint{color:var(--mute);font-size:12.5px;margin:6px 0}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.row label{display:flex;gap:6px;align-items:center;color:var(--mute)}
+select,input[type=text],input[type=number]{border:1px solid var(--rule);border-radius:5px;padding:5px 8px;background:#fff;min-width:0}
+input[type=number]{width:84px}
+select{max-width:100%}
+
+/* chart cards */
+.chart{display:block;position:relative;border:1px solid var(--rule);border-radius:7px;padding:9px 10px 9px 34px;margin:6px 0;cursor:pointer;background:#fff}
+.chart input{position:absolute;left:11px;top:13px}
+.chart.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(11,92,107,.18)}
+.chart.off{opacity:.55;cursor:not-allowed}
+.chart .ct{display:flex;justify-content:space-between;gap:8px;font-weight:600}
+.chart .ty{font-weight:400;color:var(--mute);font-size:12.5px;white-space:nowrap}
+.chart .tt{color:var(--mute);font-size:12.5px}
+.sers{list-style:none;margin:6px 0 0;padding:0;font-size:12.5px}
+.sers li{display:flex;gap:7px;align-items:center;padding:1px 0}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid rgba(0,0,0,.2);flex:none}
+.sw.auto{background:repeating-linear-gradient(45deg,#fff 0 3px,#dde4e8 3px 6px)}
+.sers .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sers .rf{margin-left:auto;font:11px var(--mono);color:var(--mute);white-space:nowrap}
+
+/* grid */
+.gridwrap{overflow:auto;border:1px solid var(--rule);border-radius:7px;max-height:min(70vh,720px);background:#fff}
+table.grid{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:100%}
+.grid th,.grid td{border-right:1px solid var(--soft);border-bottom:1px solid var(--soft);padding:3px 8px;white-space:nowrap;text-align:left;font-variant-numeric:tabular-nums}
+.grid thead th{position:sticky;top:0;background:#F3F6F7;z-index:2;vertical-align:top;padding:5px 8px 6px;border-bottom:1px solid var(--rule);min-width:92px}
+.grid .rn{position:sticky;left:0;z-index:3;background:#F3F6F7;color:var(--mute);min-width:40px;text-align:right}
+.grid tbody .rn{z-index:1;background:#F8FAFB}
+.grid .cl{color:var(--mute);font-size:11px}
+.grid .ch{font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.rb{display:flex;gap:3px;margin-top:4px}
+.rb button{flex:1;border:1px solid var(--rule);background:#fff;border-radius:4px;font-size:12px;padding:1px 0;cursor:pointer;min-width:26px}
+.rb button:hover{border-color:var(--mute)}
+.rb button.on[data-role=g]{background:var(--g);border-color:var(--g);color:#fff}
+.rb button.on[data-role=x]{background:var(--x);border-color:var(--x);color:#fff}
+.rb button.on[data-role=y]{background:var(--y);border-color:var(--y);color:#fff}
+.grid .r-g{--t:var(--g)} .grid .r-x{--t:var(--x)} .grid .r-y{--t:var(--y)}
+.grid td.r-g,.grid td.r-x,.grid td.r-y{background:color-mix(in srgb,var(--t) 11%,#fff)}
+.grid th.r-g,.grid th.r-x,.grid th.r-y{box-shadow:inset 0 3px 0 var(--t)}
+.used{display:inline-block;margin-left:5px;padding:0 5px;border-radius:8px;background:#E2E8EC;color:var(--mute);font-size:10.5px}
+.grid td.dim{color:#9AA8B1}
+
+/* group strip */
+.strip{display:flex;height:30px;border:1px solid var(--rule);border-radius:5px;overflow:hidden;background:var(--soft)}
+.strip div{min-width:2px;overflow:hidden;white-space:nowrap;text-overflow:clip;font-size:11.5px;line-height:28px;padding:0 5px;color:#10202a;border-right:1px solid rgba(255,255,255,.7)}
+.gt{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+.gt th{font-weight:600;color:var(--mute);text-align:left;font-size:12px;padding:3px 6px;border-bottom:1px solid var(--rule)}
+.gt td{padding:4px 6px;border-bottom:1px solid var(--soft)}
+.gt td.num{font-variant-numeric:tabular-nums;color:var(--mute)}
+.gt .rg{font:12px var(--mono);color:var(--mute)}
+.warn{margin:8px 0;padding:7px 10px;border-radius:6px;background:#FFF4E5;color:var(--warn);font-size:12.5px}
+.err{background:#FDECEA;color:var(--err)}
+.ok{background:#E6F4EC;color:#1F6B44}
+
+/* queue */
+.q{border:1px solid var(--rule);border-radius:7px;padding:8px;margin:8px 0;background:#fff}
+.q .l1{display:flex;gap:6px;align-items:center}
+.q input[type=text]{flex:1;font-weight:600}
+.q .rf{font:11px var(--mono);color:var(--mute);margin-top:4px;word-break:break-all}
+.q .meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;font-size:11.5px;color:var(--mute)}
+.q .meta span{display:inline-flex;align-items:center;gap:3px}
+.q .meta .pts{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink)}
+.q .meta .warn-tag{color:var(--warn);font-weight:550}
+.q .opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center}
+.q .opts label{display:inline-flex;gap:3px;align-items:center;font-size:11.5px;color:var(--mute)}
+.q .opts select{font-size:11.5px;padding:2px 4px;border:1px solid var(--rule);border-radius:4px;background:#fff;max-width:7.5em}
+.qstyle{margin:8px 0;padding:8px 10px;border:1px solid var(--rule);border-radius:6px;background:#fff}
+.qstyle .row{margin:4px 0}
+.qstyle label{font-size:12.5px}
+.colsearch{flex:1;min-width:140px}
+.filters{margin:8px 0;padding:8px 10px;border:1px solid var(--rule);border-radius:6px;background:#fff}
+.filters .frow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0}
+.filters select,.filters input[type=text]{font-size:12.5px;padding:3px 6px}
+.filters .fcol{max-width:10em}
+.filters .fop{max-width:7em}
+.filters .fval{width:8em}
+.grpsearch{width:12em}
+.q .colorbtn{position:relative;width:24px;height:24px;border-radius:5px;border:1px solid rgba(0,0,0,.25);cursor:pointer;flex:none;overflow:hidden}
+.q .colorbtn input{position:absolute;inset:-6px;opacity:0;cursor:pointer;width:40px;height:40px}
+.x-btn{border:none;background:transparent;font-size:18px;line-height:1;color:var(--mute);cursor:pointer;padding:2px 6px;border-radius:4px}
+.x-btn:hover{background:var(--soft);color:var(--err)}
+#log{margin-top:10px;font-size:12.5px;color:var(--mute)}
+.qsum{margin:6px 0 2px;font-size:12.5px;color:var(--mute)}
+.qsum b{color:var(--ink);font-weight:600}
+.sticky{position:sticky;top:12px}
+
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(21,33,42,.45);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--card);border-radius:10px;max-width:480px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.22);padding:20px 22px}
+.modal h3{margin:0 0 10px;font-size:16px}
+.modal .mlist{margin:10px 0;max-height:240px;overflow:auto;border:1px solid var(--rule);border-radius:6px}
+.modal .mitem{display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--soft);font-size:13px}
+.modal .mitem:last-child{border-bottom:none}
+.modal .mitem .sw{flex:none}
+.modal .mitem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:550}
+.modal .mitem .pts{font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+.modal .mhint{font-size:12.5px;color:var(--mute);margin:8px 0}
+.modal .macts{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+
+@media (max-width:1180px){.cols{grid-template-columns:1fr;padding:12px}.sticky{position:static}.top{padding:12px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>图表追加系列</h1>
+  <span class="sp"></span>
+  <span id="fname"></span>
+  <label class="btn" for="file">选择 .xlsx 文件</label>
+  <input id="file" type="file" accept=".xlsx,.xlsm">
+</header>
+
+<div id="empty">
+  <h2>拖入 .xlsx 文件</h2>
+  <p>在 Excel 原生图表里追加数据系列，原有系列、坐标轴、标题和单元格数据都不会被改动。</p>
+  <p>文件只在这个浏览器里处理，不会上传。</p>
+  <p><label class="btn primary" for="file">选择文件</label></p>
+</div>
+
+<main class="cols">
+  <section class="panel" id="pChart" aria-labelledby="h1">
+    <h2 id="h1"><span class="n">1</span>选择图表</h2>
+    <div id="chartList"></div>
+    <div id="chartOpts"></div>
+  </section>
+
+  <section class="panel" id="pData" aria-labelledby="h2">
+    <h2 id="h2"><span class="n">2</span>选择数据</h2>
+    <div id="dataBody"><p class="hint">先在左侧选一个图表。</p></div>
+  </section>
+
+  <section class="panel sticky" id="pQueue" aria-labelledby="h3">
+    <h2 id="h3"><span class="n">3</span>待追加的系列</h2>
+    <div id="queue"></div>
+    <div class="row">
+      <button class="btn primary" id="writeBtn" type="button" disabled>写入图表并下载</button>
+      <button class="btn sm" id="clearBtn" type="button" disabled>清空</button>
+    </div>
+    <div id="log" role="status" aria-live="polite"></div>
+  </section>
+</main>
+<footer class="foot">图表追加系列  · 作者 mYk · MIT 许可 · 文件仅在本机处理，不上传</footer>
+
+<script>
+(() => {
+'use strict';
+/* ───────── 基础工具 ───────── */
+const NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const $ = (s, r = document) => r.querySelector(s);
+const dec = new TextDecoder('utf-8'), enc = new TextEncoder();
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const colName = n => { let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=(n-m-1)/26; } return s; };
+const colNum = s => [...s].reduce((a,c)=>a*26+c.charCodeAt(0)-64, 0);
+const parseXml = t => { const d = new DOMParser().parseFromString(t, 'application/xml'); if (d.getElementsByTagName('parsererror').length) throw new Error('XML 解析失败'); return d; };
+const els = (n, ln) => Array.from(n.getElementsByTagNameNS('*', ln));
+const kids = (n, ln) => n ? Array.from(n.children).filter(c => c.localName === ln) : [];
+const kid = (n, ln) => kids(n, ln)[0] || null;
+
+/* ───────── zip 读写（原样保留未修改文件的压缩数据） ───────── */
+const CRC = (() => { const t = new Uint32Array(256); for (let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+const crc32 = u => { let c = 0xFFFFFFFF; for (let i=0;i<u.length;i++) c = CRC[(c^u[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; };
+async function pipe(u8, stream){ const s = new Blob([u8]).stream().pipeThrough(stream); return new Uint8Array(await new Response(s).arrayBuffer()); }
+const inflate = u => pipe(u, new DecompressionStream('deflate-raw'));
+const deflate = u => pipe(u, new CompressionStream('deflate-raw'));
+
+function parseZip(buf){
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let e = buf.length - 22;
+  for (; e >= Math.max(0, buf.length - 65557); e--) if (dv.getUint32(e, true) === 0x06054b50) break;
+  if (e < 0 || dv.getUint32(e, true) !== 0x06054b50) throw new Error('这不是有效的 .xlsx 文件');
+  const total = dv.getUint16(e+10, true); let p = dv.getUint32(e+16, true);
+  const order = [], map = new Map();
+  for (let i=0;i<total;i++){
+    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error('zip 目录已损坏');
+    const flag=dv.getUint16(p+8,true), csize=dv.getUint32(p+20,true), usize=dv.getUint32(p+24,true);
+    const nlen=dv.getUint16(p+28,true), elen=dv.getUint16(p+30,true), clen=dv.getUint16(p+32,true), lho=dv.getUint32(p+42,true);
+    if (csize===0xFFFFFFFF || usize===0xFFFFFFFF || lho===0xFFFFFFFF) throw new Error('暂不支持 zip64 超大文件');
+    if (flag & 1) throw new Error('文件已加密，请先在 Excel 中取消密码');
+    const nameBytes = buf.slice(p+46, p+46+nlen), name = dec.decode(nameBytes);
+    const ln = dv.getUint16(lho+26, true), le = dv.getUint16(lho+28, true), start = lho+30+ln+le;
+    map.set(name, { name, nameBytes, flag: flag & ~8, method: dv.getUint16(p+10,true), time: dv.getUint16(p+12,true), date: dv.getUint16(p+14,true),
+      crc: dv.getUint32(p+16,true), csize, usize, iattr: dv.getUint16(p+36,true), eattr: dv.getUint32(p+38,true), vmade: dv.getUint16(p+4,true),
+      raw: buf.subarray(start, start+csize), dirty: false });
+    order.push(name);
+    p += 46 + nlen + elen + clen;
+  }
+  return { order, map };
+}
+function buildZip(z){
+  const parts = [], cds = []; let off = 0;
+  const push = u => { parts.push(u); off += u.length; };
+  for (const name of z.order){
+    const e = z.map.get(name), nb = e.nameBytes, h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,e.flag,true); h.setUint16(8,e.method,true);
+    h.setUint16(10,e.time,true); h.setUint16(12,e.date,true); h.setUint32(14,e.crc,true); h.setUint32(18,e.csize,true);
+    h.setUint32(22,e.usize,true); h.setUint16(26,nb.length,true); h.setUint16(28,0,true);
+    const lho = off; push(new Uint8Array(h.buffer)); push(nb); push(e.raw);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true); c.setUint16(4,e.vmade,true); c.setUint16(6,20,true); c.setUint16(8,e.flag,true); c.setUint16(10,e.method,true);
+    c.setUint16(12,e.time,true); c.setUint16(14,e.date,true); c.setUint32(16,e.crc,true); c.setUint32(20,e.csize,true); c.setUint32(24,e.usize,true);
+    c.setUint16(28,nb.length,true); c.setUint16(36,e.iattr,true); c.setUint32(38,e.eattr,true); c.setUint32(42,lho,true);
+    cds.push(new Uint8Array(c.buffer), nb);
+  }
+  const cdStart = off; let cdLen = 0; for (const u of cds){ push(u); cdLen += u.length; }
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true); end.setUint16(8,z.order.length,true); end.setUint16(10,z.order.length,true);
+  end.setUint32(12,cdLen,true); end.setUint32(16,cdStart,true);
+  push(new Uint8Array(end.buffer));
+  return new Blob(parts, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+/* ───────── 文件状态 ───────── */
+let zip = null, theme = {}, sst = [];
+const sheetCache = new Map();
+async function getBytes(name){ const e = zip.map.get(name); if (!e) return null; if (e.method===0) return e.raw; if (e.method===8) return inflate(e.raw); throw new Error('不支持的压缩方式：'+e.method); }
+async function getText(name){ const b = await getBytes(name); if (!b) return null; let t = dec.decode(b); if (t.charCodeAt(0)===0xFEFF) t = t.slice(1); return t; }
+async function putText(name, text){
+  const e = zip.map.get(name), u = enc.encode(text);
+  e.raw = await deflate(u); e.method = 8; e.crc = crc32(u); e.csize = e.raw.length; e.usize = u.length; e.dirty = true;
+}
+function resolvePath(base, target){
+  if (target.startsWith('/')) return target.slice(1);
+  const parts = base.split('/'); parts.pop();
+  for (const seg of target.split('/')){ if (seg==='..') parts.pop(); else if (seg!=='.' && seg!=='') parts.push(seg); }
+  return parts.join('/');
+}
+async function readRels(path){
+  const i = path.lastIndexOf('/'), t = await getText(path.slice(0,i+1)+'_rels/'+path.slice(i+1)+'.rels'), m = new Map();
+  if (!t) return m;
+  for (const r of els(parseXml(t), 'Relationship')) m.set(r.getAttribute('Id'), { type: r.getAttribute('Type')||'', target: r.getAttribute('Target')||'' });
+  return m;
+}
+
+/* ───────── 主题色与颜色计算 ───────── */
+const DEF_THEME = { accent1:'4472C4',accent2:'ED7D31',accent3:'A5A5A5',accent4:'FFC000',accent5:'5B9BD5',accent6:'70AD47',dk1:'000000',lt1:'FFFFFF',dk2:'44546A',lt2:'E7E6E6' };
+async function loadTheme(){
+  theme = { ...DEF_THEME };
+  const t = await getText('xl/theme/theme1.xml');
+  if (t){ const cs = els(parseXml(t), 'clrScheme')[0]; if (cs) for (const c of cs.children){ const v = c.firstElementChild; if (v) theme[c.localName] = v.getAttribute('val') || v.getAttribute('lastClr') || theme[c.localName]; } }
+  theme.tx1=theme.dk1; theme.bg1=theme.lt1; theme.tx2=theme.dk2; theme.bg2=theme.lt2;
+}
+function rgb2hsl(hex){ const r=parseInt(hex.slice(0,2),16)/255,g=parseInt(hex.slice(2,4),16)/255,b=parseInt(hex.slice(4,6),16)/255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2; let h=0,s=0;
+  if(mx!==mn){ const d=mx-mn; s=l>.5?d/(2-mx-mn):d/(mx+mn); h = mx===r?(g-b)/d+(g<b?6:0) : mx===g?(b-r)/d+2 : (r-g)/d+4; h/=6; }
+  return [h,s,l]; }
+function hsl2hex(h,s,l){ const f=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1; return t<1/6?p+(q-p)*6*t : t<1/2?q : t<2/3?p+(q-p)*(2/3-t)*6 : p; };
+  let r,g,b; if(s===0){ r=g=b=l; } else { const q=l<.5?l*(1+s):l+s-l*s, p=2*l-q; r=f(p,q,h+1/3); g=f(p,q,h); b=f(p,q,h-1/3); }
+  return [r,g,b].map(v=>Math.round(Math.min(1,Math.max(0,v))*255).toString(16).padStart(2,'0')).join('').toUpperCase(); }
+function applyMods(hex, m){ let [h,s,l] = rgb2hsl(hex); if (m.lumMod!=null) l*=m.lumMod/100000; if (m.lumOff!=null) l+=m.lumOff/100000; return '#'+hsl2hex(h,s,Math.min(1,Math.max(0,l))); }
+function resolveColorEl(c){
+  const n = c.localName; let hex = null;
+  if (n==='srgbClr') hex = c.getAttribute('val'); else if (n==='schemeClr') hex = theme[c.getAttribute('val')]; else if (n==='sysClr') hex = c.getAttribute('lastClr');
+  if (!hex || !/^[0-9A-Fa-f]{6}$/.test(hex)) return null;
+  const mods = {}; for (const m of c.children) mods[m.localName] = +m.getAttribute('val');
+  return applyMods(hex, mods);
+}
+/* Excel 默认配色顺序：accent1..6，之后依次加深/变浅 */
+const CYC = [null, {lumMod:60000}, {lumMod:80000,lumOff:20000}, {lumMod:60000,lumOff:40000}, {lumMod:50000}, {lumMod:70000,lumOff:30000}];
+const autoSpec = i => ({ scheme: 'accent'+(i%6+1), mods: CYC[Math.floor(i/6)%CYC.length] });
+const autoHex = i => { const s = autoSpec(i); return applyMods(theme[s.scheme]||'888888', s.mods||{}); };
+function autoXml(A, i){ const s = autoSpec(i); const inner = s.mods ? Object.entries(s.mods).map(([k,v])=>`<${A}${k} val="${v}"/>`).join('') : '';
+  return inner ? `<${A}schemeClr val="${s.scheme}">${inner}</${A}schemeClr>` : `<${A}schemeClr val="${s.scheme}"/>`; }
+
+/* ───────── 工作簿 / 图表发现 ───────── */
+const SUPPORTED = ['scatter','line','bar','area'];
+const TYPE_LABEL = { scatter:'散点图', line:'折线图', bar:'柱形/条形图', area:'面积图', pie:'饼图', doughnut:'圆环图', bubble:'气泡图', radar:'雷达图', stock:'股价图', surface:'曲面图', ofPie:'复合饼图', bar3D:'三维柱形图', line3D:'三维折线图', area3D:'三维面积图', pie3D:'三维饼图', surface3D:'三维曲面图' };
+
+async function loadSST(){
+  const t = await getText('xl/sharedStrings.xml'); if (!t) return [];
+  return els(parseXml(t), 'si').map(si => els(si,'t').filter(x => x.parentNode.localName !== 'rPh').map(x => x.textContent).join(''));
+}
+function serColor(s, type){
+  const pick = n => { const sf = n && kid(n,'solidFill'); return sf && sf.firstElementChild ? resolveColorEl(sf.firstElementChild) : null; };
+  const sp = kid(s,'spPr'), ln = sp && kid(sp,'ln'), mk = kid(s,'marker'), msp = mk && kid(mk,'spPr');
+  return (type==='bar'||type==='area') ? (pick(sp)||pick(ln)) : (pick(ln)||pick(sp)||pick(msp)||(msp&&pick(kid(msp,'ln'))));
+}
+function describeChart(xml){
+  const d = parseXml(xml), chartEl = els(d,'chart')[0], plot = els(d,'plotArea')[0];
+  let title = '';
+  const te = chartEl && kid(chartEl,'title');
+  if (te){ title = els(te,'t').map(x=>x.textContent).join('') || els(te,'v').map(x=>x.textContent).join(''); }
+  const groups = [];
+  if (plot) for (const g of plot.children){
+    if (!/Chart$/.test(g.localName)) continue;
+    const type = g.localName.replace(/Chart$/,'');
+    const sers = kids(g,'ser').map(s => {
+      const tx = kid(s,'tx'); let name = tx ? (els(tx,'v')[0]?.textContent ?? '') : '';
+      const xe = kid(s,'xVal')||kid(s,'cat'), ye = kid(s,'yVal')||kid(s,'val');
+      const f = e => e ? (els(e,'f')[0]?.textContent ?? '') : '';
+      return { idx:+(kid(s,'idx')?.getAttribute('val')??0), order:+(kid(s,'order')?.getAttribute('val')??0), name, xRef:f(xe), yRef:f(ye), color:serColor(s,type) };
+    });
+    groups.push({ type, supported: SUPPORTED.includes(type) && sers.length>0, sers });
+  }
+  return { title, groups };
+}
+async function loadWorkbook(){
+  const wb = parseXml(await getText('xl/workbook.xml')), rels = await readRels('xl/workbook.xml');
+  const sheets = []; 
+  for (const s of els(wb,'sheet')){
+    const r = rels.get(s.getAttributeNS(NS_R,'id')); if (!r || !/\/worksheet$/.test(r.type)) continue;
+    sheets.push({ name: s.getAttribute('name'), path: resolvePath('xl/workbook.xml', r.target) });
+  }
+  const charts = [], seen = new Set();
+  for (const sh of sheets){
+    const sr = await readRels(sh.path); let dpath = null;
+    for (const r of sr.values()) if (/\/drawing$/.test(r.type)) dpath = resolvePath(sh.path, r.target);
+    if (!dpath || !zip.map.has(dpath)) continue;
+    const dr = await readRels(dpath), dd = parseXml(await getText(dpath)); let n = 0;
+    for (const gf of els(dd,'graphicFrame')){
+      const ce = els(gf,'chart')[0]; const rid = ce && ce.getAttributeNS(NS_R,'id'); const rel = rid && dr.get(rid);
+      if (!rel) continue; const path = resolvePath(dpath, rel.target); n++;
+      if (seen.has(path) || !zip.map.has(path)) continue; seen.add(path);
+      const xml = await getText(path);
+      charts.push({ sheet: sh.name, n, anchor: els(gf,'cNvPr')[0]?.getAttribute('name') || '', path, xml, info: describeChart(xml) });
+    }
+  }
+  return { sheets, charts };
+}
+async function loadSheetData(path){
+  if (sheetCache.has(path)) return sheetCache.get(path);
+  const doc = parseXml(await getText(path)), rows = new Map(); let maxRow = 0, maxCol = 0, lastR = 0;
+  const sd = els(doc,'sheetData')[0];
+  if (sd) for (const r of sd.children){
+    const rn = +r.getAttribute('r') || ++lastR; lastR = rn; let lastC = 0;
+    for (const c of r.children){
+      const m = /^([A-Z]+)(\d+)$/.exec(c.getAttribute('r')||''); const cn = m ? colNum(m[1]) : ++lastC; lastC = cn;
+      const t = c.getAttribute('t'), v = kid(c,'v'); let val;
+      if (t === 'inlineStr'){ const is = kid(c,'is'); val = is ? els(is,'t').filter(x=>x.parentNode.localName!=='rPh').map(x=>x.textContent).join('') : ''; }
+      else if (!v) continue;
+      else { const tx = v.textContent; if (t==='s') val = sst[+tx]; else if (t==='str'||t==='e'||t==='d') val = tx; else if (t==='b') val = tx==='1'?'TRUE':'FALSE'; else { const n = Number(tx); val = (tx.trim()===''||isNaN(n)) ? tx : n; } }
+      if (val === undefined || val === '') continue;
+      let row = rows.get(rn); if (!row){ row = new Map(); rows.set(rn,row); }
+      row.set(cn, val); if (rn>maxRow) maxRow = rn; if (cn>maxCol) maxCol = cn;
+    }
+  }
+  const out = { rows, maxRow, maxCol }; sheetCache.set(path, out); return out;
+}
+
+/* ───────── 生成 <c:ser> ───────── */
+const ORDER = {
+  scatter:['idx','order','tx','spPr','marker','dPt','dLbls','trendline','errBars','xVal','yVal','smooth','extLst'],
+  line:['idx','order','tx','spPr','marker','dPt','dLbls','trendline','errBars','cat','val','smooth','extLst'],
+  bar:['idx','order','tx','spPr','invertIfNegative','pictureOptions','dPt','dLbls','trendline','errBars','cat','val','shape','extLst'],
+  area:['idx','order','tx','spPr','pictureOptions','dPt','dLbls','trendline','errBars','cat','val','extLst']
+};
+const elRe = (P, t, f='') => new RegExp(`<${reEsc(P)}${t}(?=[\\s>/])[^>]*?(?:/>|>[\\s\\S]*?</${reEsc(P)}${t}>)`, f);
+function detectCtx(cx){
+  const root = /<(?:([\w.-]+):)?chartSpace\b([^>]*)>/.exec(cx);
+  const am = /xmlns:([\w.-]+)="http:\/\/schemas\.openxmlformats\.org\/drawingml\/2006\/main"/.exec(root ? root[2] : '');
+  return { P: root && root[1] ? root[1]+':' : '', A: am ? am[1]+':' : 'a:' };
+}
+function setChild(S, ctx, kind, tag, xml){
+  const { P } = ctx, re = elRe(P, tag);
+  if (re.test(S)) return S.replace(re, () => xml);
+  const ord = ORDER[kind], pos = ord.indexOf(tag);
+  for (let i = pos-1; i >= 0; i--){ const m = elRe(P, ord[i]).exec(S); if (m) return S.slice(0, m.index+m[0].length) + xml + S.slice(m.index+m[0].length); }
+  return S.replace(new RegExp(`^<${reEsc(P)}ser[^>]*>`), m => m + xml);
+}
+const qSheet = n => (/^[\p{L}_][\p{L}\p{N}_.]*$/u.test(n) && !/^(?:[A-Za-z]{1,3}\d+|[Rr]\d*[Cc]\d*|[Rr]|[Cc])$/.test(n)) ? n : `'${n.replace(/'/g,"''")}'`;
+const areaRef = (sheet, col, [a,b]) => `${qSheet(sheet)}!$${colName(col)}$${a}:$${colName(col)}$${b}`;
+const refOf = (sheet, col, areas) => areas.length===1 ? areaRef(sheet,col,areas[0]) : `(${areas.map(a=>areaRef(sheet,col,a)).join(',')})`;
+function collect(sd, col, areas){
+  const pts = []; let n = 0;
+  for (const [a,b] of areas) for (let r=a; r<=b; r++){ const v = sd.rows.get(r)?.get(col); if (v!==undefined) pts.push([n,v]); n++; }
+  return { n, pts };
+}
+const numRefXml = (P, ref, c) => `<${P}numRef><${P}f>${esc(ref)}</${P}f><${P}numCache><${P}formatCode>General</${P}formatCode><${P}ptCount val="${c.n}"/>${c.pts.filter(([,v])=>typeof v==='number').map(([i,v])=>`<${P}pt idx="${i}"><${P}v>${v}</${P}v></${P}pt>`).join('')}</${P}numCache></${P}numRef>`;
+const strRefXml = (P, ref, c) => `<${P}strRef><${P}f>${esc(ref)}</${P}f><${P}strCache><${P}ptCount val="${c.n}"/>${c.pts.map(([i,v])=>`<${P}pt idx="${i}"><${P}v>${esc(v)}</${P}v></${P}pt>`).join('')}</${P}strCache></${P}strRef>`;
+const isNum = c => c.pts.length>0 && c.pts.every(([,v])=>typeof v==='number');
+
+function buildSer(ctx, tpl, kind, it, idx, order, colorHex, widthPt, sd, hdrSd){
+  const { P, A } = ctx; let S = tpl;
+  for (const t of ['dPt','dLbls','trendline','errBars','extLst']) S = S.replace(elRe(P, t, 'g'), '');
+  // 颜色：把参照系列里的主色统一替换成新系列颜色
+  const cm = new RegExp(`<${reEsc(A)}solidFill>\\s*(<${reEsc(A)}(?:schemeClr|srgbClr|sysClr|prstClr)\\b[^>]*?(?:/>|>[\\s\\S]*?</${reEsc(A)}(?:schemeClr|srgbClr|sysClr|prstClr)>))`).exec(S);
+  const newColor = colorHex ? `<${A}srgbClr val="${colorHex.replace('#','').toUpperCase()}"/>` : null;
+  if (cm){ S = S.split(cm[1]).join(newColor || autoXml(A, idx)); }
+  else if (newColor){
+    const fill = `<${A}solidFill>${newColor}</${A}solidFill>`;
+    const sp = (kind==='bar'||kind==='area') ? `<${P}spPr>${fill}</${P}spPr>` : `<${P}spPr><${A}ln w="28575" cap="rnd">${fill}<${A}round/></${A}ln></${P}spPr>`;
+    S = setChild(S, ctx, kind, 'spPr', sp);
+  }
+  if (widthPt && kind!=='bar' && kind!=='area' && !elRe(P,'spPr').test(S)){
+    S = setChild(S, ctx, kind, 'spPr', `<${P}spPr><${A}ln w="${Math.round(widthPt*12700)}" cap="rnd"><${A}solidFill>${newColor || autoXml(A, idx)}</${A}solidFill><${A}round/></${A}ln></${P}spPr>`);
+  }
+  if (widthPt){
+    const w = Math.round(widthPt*12700);
+    S = S.replace(elRe(P,'spPr'), m => {
+      if (new RegExp(`<${reEsc(A)}ln\\b[^>]*?\\sw="\\d+"`).test(m)) return m.replace(new RegExp(`(<${reEsc(A)}ln\\b[^>]*?\\sw=")\\d+"`), `$1${w}"`);
+      return m.replace(new RegExp(`<${reEsc(A)}ln\\b`), `<${A}ln w="${w}"`);
+    });
+  }
+  // 线型（虚线）
+  const dash = it.dash || '';
+  if (dash && kind !== 'bar' && kind !== 'area'){
+    const dashXml = `<${A}prstDash val="${dash}"/>`;
+    S = S.replace(elRe(P,'spPr'), m => {
+      if (new RegExp(`<${reEsc(A)}prstDash\\b`).test(m)) return m.replace(new RegExp(`<${reEsc(A)}prstDash\\b[^>]*?(?:/>|>[\\s\\S]*?</${reEsc(A)}prstDash>)`), dashXml);
+      // 插入到 ln 内部，solidFill 之后
+      if (new RegExp(`<${reEsc(A)}ln\\b`).test(m)){
+        return m.replace(new RegExp(`(</${reEsc(A)}solidFill>)`), `$1${dashXml}`)
+                .replace(new RegExp(`(<${reEsc(A)}ln\\b[^>]*?>)(?![\\s\\S]*<${reEsc(A)}solidFill)`), `$1${dashXml}`);
+      }
+      return m;
+    });
+    // 若仍无 prstDash（模板无 ln），确保有
+    if (!new RegExp(`<${reEsc(A)}prstDash\\b`).test(S) && elRe(P,'spPr').test(S)){
+      S = S.replace(elRe(P,'spPr'), m => m.replace(new RegExp(`(</${reEsc(A)}ln>)`), `${dashXml}$1`));
+    }
+  }
+  // 标记形状（仅 line / scatter 有意义）
+  const marker = it.marker || '';
+  if (marker && (kind === 'line' || kind === 'scatter')){
+    const colorInner = newColor || autoXml(A, idx);
+    const mkXml = marker === 'none'
+      ? `<${P}marker><${P}symbol val="none"/></${P}marker>`
+      : `<${P}marker><${P}symbol val="${marker}"/><${P}size val="7"/><${P}spPr><${A}solidFill>${colorInner}</${A}solidFill><${A}ln w="9525"><${A}solidFill>${colorInner}</${A}solidFill></${A}ln></${P}spPr></${P}marker>`;
+    if (elRe(P,'marker').test(S)) S = S.replace(elRe(P,'marker'), () => mkXml);
+    else S = setChild(S, ctx, kind, 'marker', mkXml);
+  }
+  S = setChild(S, ctx, kind, 'idx', `<${P}idx val="${idx}"/>`);
+  S = setChild(S, ctx, kind, 'order', `<${P}order val="${order}"/>`);
+  const tx = it.nameRef
+    ? `<${P}tx>${strRefXml(P, it.nameRef.ref, { n:1, pts:[[0, it.nameRef.text]] })}</${P}tx>`
+    : `<${P}tx><${P}v>${esc(it.name)}</${P}v></${P}tx>`;
+  S = setChild(S, ctx, kind, 'tx', tx);
+  const xc = collect(sd, it.xCol, it.areas), yc = collect(sd, it.yCol, it.areas);
+  const xRef = refOf(it.sheet, it.xCol, it.areas), yRef = refOf(it.sheet, it.yCol, it.areas);
+  const xTag = kind==='scatter' ? 'xVal' : 'cat', yTag = kind==='scatter' ? 'yVal' : 'val';
+  S = setChild(S, ctx, kind, xTag, `<${P}${xTag}>${isNum(xc) ? numRefXml(P,xRef,xc) : strRefXml(P,xRef,xc)}</${P}${xTag}>`);
+  S = setChild(S, ctx, kind, yTag, `<${P}${yTag}>${numRefXml(P,yRef,yc)}</${P}${yTag}>`);
+  return S;
+}
+
+/* ───────── 界面状态 ───────── */
+const MARKER_OPTS = [
+  { v:'', lab:'沿用' }, { v:'circle', lab:'圆' }, { v:'square', lab:'方' },
+  { v:'diamond', lab:'菱' }, { v:'triangle', lab:'三角' }, { v:'x', lab:'×' },
+  { v:'star', lab:'星' }, { v:'plus', lab:'＋' }, { v:'none', lab:'无' }
+];
+const DASH_OPTS = [
+  { v:'', lab:'沿用' }, { v:'solid', lab:'实线' }, { v:'dash', lab:'虚线' },
+  { v:'dashDot', lab:'点划' }, { v:'lgDash', lab:'长虚' }, { v:'sysDot', lab:'点线' }
+];
+const FILTER_OPS = [
+  { v:'eq', lab:'等于' }, { v:'ne', lab:'不等于' }, { v:'contains', lab:'包含' },
+  { v:'notempty', lab:'非空' }, { v:'empty', lab:'为空' },
+  { v:'gt', lab:'>' }, { v:'lt', lab:'<' }, { v:'gte', lab:'≥' }, { v:'lte', lab:'≤' }
+];
+const S = { name:'', sheets:[], charts:[], chartSel:-1, groupSel:0, tplSel:-1, lineW:'',
+  defMarker:'', defDash:'', colorMode:'auto', unifyColor:'#4472C4',
+  dataSheet:'', sd:null, hdr:1, roles:{ g:[], x:null, y:[] }, from:0, to:0, rangeAuto:true,
+  picked:null, merge:true, nameTpl:'', queue:[], lastBlob:null, lastName:'',
+  colSearch:'', filters:[], grpSearch:'', grpSep:' · ' };
+const TYPE_KEY = { scatter:'scatter', line:'line', bar:'bar', area:'area' };
+
+function msg(text, kind=''){ const l = $('#log'); l.innerHTML = text ? `<div class="warn ${kind}">${text}</div>` : ''; }
+const curChart = () => S.charts[S.chartSel] || null;
+const curGroup = () => { const c = curChart(); return c ? c.info.groups.filter(g=>g.supported)[S.groupSel] || null : null; };
+const hdrText = c => { const v = S.sd?.rows.get(S.hdr)?.get(c); return v===undefined ? '列'+colName(c) : String(v); };
+const sheetObj = name => S.sheets.find(s=>s.name===name);
+
+/* ───── 载入 ───── */
+async function loadBytes(buf, name){
+  zip = parseZip(buf); sheetCache.clear(); S.name = name;
+  await loadTheme(); sst = await loadSST();
+  const wb = await loadWorkbook(); S.sheets = wb.sheets; S.charts = wb.charts;
+  document.body.classList.add('ready'); $('#fname').textContent = name;
+}
+async function openFile(file){
+  try {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    await loadBytes(buf, file.name);
+    S.queue = []; S.chartSel = -1; S.sd = null; S.roles = { g:[], x:null, y:[] }; S.lastBlob = null;
+    msg(S.charts.length ? '' : '这个文件里没有找到原生图表。', S.charts.length ? '' : 'err');
+    const firstOk = S.charts.findIndex(c => c.info.groups.some(g=>g.supported));
+    renderAll(); if (firstOk >= 0) await selectChart(firstOk);
+  } catch (e) {
+    console.error(e);
+    const m = e && e.message ? String(e.message) : String(e);
+    let tip = m;
+    if (/这不是有效的/.test(m)) tip = '这不是有效的 .xlsx 文件，请确认文件未损坏。';
+    else if (/已加密/.test(m)) tip = '文件已加密，请先在 Excel 中取消密码保护后再打开。';
+    else if (/zip64/.test(m)) tip = '文件过大（zip64），当前暂不支持。';
+    else if (/zip 目录已损坏/.test(m)) tip = '压缩包目录损坏，文件可能不完整。';
+    else tip = '无法打开：' + m;
+    msg(tip, 'err');
+  }
+}
+
+/* ───── 选择图表 ───── */
+async function selectChart(i){
+  S.chartSel = i; S.groupSel = 0; S.tplSel = -1;
+  const g = curGroup(); const ch = curChart();
+  let ds = ch.sheet;
+  const ref = g && g.sers.map(s=>s.yRef).find(Boolean);
+  if (ref){ const m = /^\(?(?:'((?:[^']|'')+)'|([^'!(),]+))!/.exec(ref); const n = m ? (m[1] ? m[1].replace(/''/g,"'") : m[2]) : ''; if (sheetObj(n)) ds = n; }
+  await setDataSheet(ds, true);
+}
+async function setDataSheet(name, reset){
+  S.dataSheet = name; S.sd = await loadSheetData(sheetObj(name).path);
+  if (reset){ S.hdr = 1; S.roles = { g:[], x:null, y:[] }; S.filters = []; S.colSearch = ''; S.grpSearch = ''; }
+  S.rangeAuto = true; S.picked = null; autoRange(); renderAll();
+}
+function lastRowOf(col){ let m = 0; if (col==null) return S.sd.maxRow; for (const [r,row] of S.sd.rows) if (row.has(col) && r>m) m = r; return m; }
+function autoRange(){ S.from = S.hdr+1; S.to = Math.max(S.from, lastRowOf(S.roles.x ?? S.roles.g[0] ?? S.roles.y[0] ?? null)); }
+
+/* ───── 行筛选 ───── */
+function rowPasses(r){
+  if (!S.filters.length) return true;
+  for (const f of S.filters){
+    if (!f.col) continue;
+    const raw = S.sd.rows.get(r)?.get(f.col);
+    const s = raw === undefined || raw === null ? '' : String(raw);
+    const t = s.trim();
+    const val = f.val == null ? '' : String(f.val);
+    const num = n => { const x = Number(n); return n !== '' && !isNaN(x) ? x : null; };
+    switch (f.op){
+      case 'eq': if (t !== val.trim()) return false; break;
+      case 'ne': if (t === val.trim()) return false; break;
+      case 'contains': if (!s.includes(val)) return false; break;
+      case 'notempty': if (t === '') return false; break;
+      case 'empty': if (t !== '') return false; break;
+      case 'gt': { const a = num(t), b = num(val); if (a==null||b==null||!(a>b)) return false; break; }
+      case 'lt': { const a = num(t), b = num(val); if (a==null||b==null||!(a<b)) return false; break; }
+      case 'gte': { const a = num(t), b = num(val); if (a==null||b==null||!(a>=b)) return false; break; }
+      case 'lte': { const a = num(t), b = num(val); if (a==null||b==null||!(a<=b)) return false; break; }
+      default: break;
+    }
+  }
+  return true;
+}
+/** 在 [from,to] 内按筛选条件切成连续行段 */
+function activeAreas(from, to){
+  const out = []; let a = null;
+  for (let r = from; r <= to; r++){
+    if (rowPasses(r)){ if (a==null) a = r; }
+    else if (a!=null){ out.push([a, r-1]); a = null; }
+  }
+  if (a!=null) out.push([a, to]);
+  return out.length ? out : [];
+}
+
+/* ───── 分组 ───── */
+function groupKeyAt(r){
+  const gs = S.roles.g;
+  if (!gs.length) return '';
+  const sep = S.grpSep || ' · ';
+  const parts = gs.map(c => {
+    const v = S.sd.rows.get(r)?.get(c);
+    return v===undefined || v===null ? '' : String(v).trim();
+  });
+  return { value: parts.join(sep), parts, empty: parts.every(p => p==='') };
+}
+function computeBlocks(){
+  if (!S.roles.g.length) return [];
+  const out = []; let cur = null;
+  for (let r=S.from; r<=S.to; r++){
+    if (!rowPasses(r)) continue;
+    const { value, empty } = groupKeyAt(r);
+    if (cur && cur.value===value && cur.to === r-1) cur.to = r;
+    else { cur = { value, from:r, to:r, empty }; out.push(cur); }
+  }
+  return out;
+}
+function computeGroups(blocks){
+  const map = new Map();
+  for (const b of blocks){
+    let g = map.get(b.value);
+    if (!g){
+      const parts = (b.value==='' && S.roles.g.length) ? S.roles.g.map(()=>'') : b.value.split(S.grpSep || ' · ');
+      // 更准确：从该块首行取 parts
+      const gk = groupKeyAt(b.from);
+      g = { value:b.value, parts: gk.parts, blocks:[], rows:0, empty:!!b.empty || b.value==='' };
+      map.set(b.value,g);
+    }
+    g.blocks.push(b); g.rows += b.to-b.from+1;
+  }
+  return [...map.values()];
+}
+/** 建议适合做「组」的列：唯一值不多且非空比例高 */
+function suggestGroupCols(){
+  if (!S.sd) return [];
+  const cols = Math.min(S.sd.maxCol, 80), from = S.hdr+1, to = Math.min(S.sd.maxRow, from+500);
+  const scored = [];
+  for (let c=1; c<=cols; c++){
+    if (S.roles.x===c || S.roles.y.includes(c) || S.roles.g.includes(c)) continue;
+    const set = new Set(); let filled = 0, total = 0;
+    for (let r=from; r<=to; r++){
+      total++;
+      const v = S.sd.rows.get(r)?.get(c);
+      if (v===undefined || v==='') continue;
+      filled++; set.add(String(v).trim());
+    }
+    if (filled < 3 || set.size < 2 || set.size > Math.min(40, filled*0.5)) continue;
+    const ratio = set.size / Math.max(1, filled);
+    if (ratio > 0.4) continue;
+    scored.push({ col:c, n:set.size, filled, score: filled / (set.size + 1) });
+  }
+  return scored.sort((a,b)=>b.score-a.score).slice(0, 5);
+}
+const hue = i => `hsl(${(i*53+18)%360} 48% 72%)`;
+
+/* ───── 加入队列 ───── */
+function defaultTpl(){ return !S.roles.g.length ? '' : (S.roles.y.length>1 ? '{组} {Y}' : '{组}'); }
+function groupLabel(){ return S.roles.g.map(c => hdrText(c)).join(S.grpSep || ' · '); }
+function countPts(col, areas){
+  let n = 0, empty = 0, nonNum = 0;
+  for (const [a,b] of areas) for (let r=a; r<=b; r++){
+    if (!rowPasses(r)) continue;
+    const v = S.sd.rows.get(r)?.get(col);
+    if (v === undefined || v === '') { empty++; continue; }
+    n++;
+    if (typeof v !== 'number') nonNum++;
+  }
+  return { n, empty, nonNum, total: n + empty };
+}
+function enrichItem(it){
+  const yc = countPts(it.yCol, it.areas);
+  const xc = countPts(it.xCol, it.areas);
+  it.ptCount = yc.n;
+  it.ptEmpty = yc.empty;
+  it.ptNonNum = yc.nonNum;
+  it.xCount = xc.n;
+  it.warn = [];
+  if (yc.n === 0) it.warn.push('Y 列无有效数据');
+  else if (yc.nonNum > 0 && yc.nonNum === yc.n) it.warn.push('Y 列全是文本');
+  else if (yc.nonNum > 0) it.warn.push(`Y 有 ${yc.nonNum} 个非数字`);
+  if (xc.n === 0) it.warn.push('X 列无有效数据');
+  if (yc.n > 0 && xc.n > 0 && Math.abs(yc.n - xc.n) > Math.max(2, yc.n * 0.1)) it.warn.push(`X/Y 点数差较大（${xc.n}/${yc.n}）`);
+  if (it.marker === undefined) it.marker = S.defMarker || '';
+  if (it.dash === undefined) it.dash = S.defDash || '';
+  if (S.colorMode === 'unify' && !it.color) it.color = S.unifyColor;
+  return it;
+}
+function addToQueue(){
+  const { g, x, y } = S.roles, grp = curGroup();
+  if (x==null) return msg('请先在表头点“X”，选一列作为 X 轴数据。', 'err');
+  if (!y.length) return msg('请先在表头点“Y”，选一列或多列作为 Y 轴数据。', 'err');
+  if (S.from > S.to) return msg('起始行不能大于结束行。', 'err');
+  const sheet = S.dataSheet, items = [];
+  const tplName = (S.nameTpl || defaultTpl());
+  const nameOf = (gv, yc, parts) => {
+    let n = tplName.replace(/\{组\}/g, gv).replace(/\{Y\}/g, hdrText(yc)).replace(/\{X\}/g, hdrText(x));
+    if (parts) parts.forEach((p,i) => { n = n.replace(new RegExp('\\{组'+(i+1)+'\\}','g'), p); });
+    return n;
+  };
+  if (!g.length){
+    const areas = S.filters.length ? activeAreas(S.from, S.to) : [[S.from, S.to]];
+    if (!areas.length) return msg('当前筛选条件下没有符合的行。', 'err');
+    for (const yc of y) items.push(enrichItem({ sheet, xCol:x, yCol:yc, areas, name:hdrText(yc), nameRef:{ ref:`${qSheet(sheet)}!$${colName(yc)}$${S.hdr}`, text:hdrText(yc) } }));
+  } else {
+    const groups = computeGroups(computeBlocks()).filter(gr => S.picked.has(gr.value));
+    if (!groups.length) return msg('请至少勾选一个分组。', 'err');
+    let split = 0;
+    for (const yc of y) for (const gr of groups){
+      const merged = gr.blocks.map(b=>[b.from,b.to]);
+      const tooLong = refOf(sheet, x, merged).length > 250 || refOf(sheet, yc, merged).length > 250;
+      if (S.merge && !tooLong || gr.blocks.length===1) items.push(enrichItem({ sheet, xCol:x, yCol:yc, areas:merged, name:nameOf(gr.value,yc,gr.parts) }));
+      else { split++; gr.blocks.forEach((b,k) => items.push(enrichItem({ sheet, xCol:x, yCol:yc, areas:[[b.from,b.to]], name:nameOf(gr.value,yc,gr.parts)+(k?` (${k+1})`:'') }))); }
+    }
+    if (split) msg('有分组的分段太多，合并后引用超过 255 个字符，已改为按分段分别追加。', '');
+  }
+  const bad = items.filter(it => it.ptCount === 0);
+  S.queue.push(...items); renderQueue();
+  if (bad.length && bad.length === items.length) msg(`已加入 ${items.length} 条系列，但全部没有有效 Y 数据，写入后图表可能空白。`, 'err');
+  else if (bad.length) msg(`已加入 ${items.length} 条系列，其中 ${bad.length} 条没有有效 Y 数据。`, '');
+  else if (!(g.length && $('#log .warn'))) msg(`已加入 ${items.length} 条系列。可以继续换列、换分组再加入。`, 'ok');
+}
+
+/* ───── 写入 ───── */
+function friendlyErr(e){
+  const m = e && e.message ? String(e.message) : String(e);
+  if (/没有找到图表组/.test(m)) return '找不到要追加的图表组。可能是文件结构特殊，请换一个图表试试。';
+  if (/没有现有系列|没有.*系列可作为格式参照/.test(m)) return '这个图表组里还没有系列，无法复制格式。请先在 Excel 里手动加一条系列，保存后再试。';
+  if (/XML 解析失败|parsererror/.test(m)) return '生成的图表 XML 不合法。请尝试换一个参照系列，或减少追加数量后重试。';
+  if (/不支持的压缩方式|zip64|已加密/.test(m)) return m;
+  if (/这不是有效的/.test(m)) return m;
+  return '写入失败：' + m;
+}
+function showConfirm(){
+  return new Promise(resolve => {
+    const ch = curChart(), n = S.queue.length;
+    let base = 0; for (const g of ch.info.groups) for (const s of g.sers) base = Math.max(base, s.idx + 1);
+    const warnN = S.queue.filter(it => it.warn && it.warn.length).length;
+    const list = S.queue.map((it,i) => {
+      const col = it.color || (S.colorMode === 'unify' ? S.unifyColor : autoHex(base + i));
+      const pts = it.ptCount != null ? it.ptCount : '?';
+      const w = (it.warn && it.warn.length) ? ` <span class="warn-tag">⚠</span>` : '';
+      return `<div class="mitem"><span class="sw" style="background:${col}"></span><span class="nm">${esc(it.name)}${w}</span><span class="pts">${pts} 点</span></div>`;
+    }).join('');
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <h3 id="mTitle">确认追加 ${n} 条系列</h3>
+      <p class="mhint">目标：<b>${esc(ch.sheet)} / ${esc(ch.anchor || '图表 '+ch.n)}</b>（${esc(TYPE_LABEL[curGroup().type] || curGroup().type)}）</p>
+      <div class="mlist">${list}</div>
+      ${warnN ? `<p class="mhint" style="color:var(--warn)">其中 ${warnN} 条有数据警告（点数异常或非数字），写入后可能显示不完整。</p>` : ''}
+      <p class="mhint">原有系列、坐标轴、标题和单元格数据都不会被改动。确认后将下载新文件。</p>
+      <div class="macts">
+        <button class="btn" type="button" data-m="cancel">取消</button>
+        <button class="btn primary" type="button" data-m="ok">确认写入并下载</button>
+      </div>
+    </div>`;
+    const close = ok => { bg.remove(); document.removeEventListener('keydown', onKey); resolve(ok); };
+    const onKey = e => { if (e.key === 'Escape') close(false); };
+    bg.addEventListener('click', e => {
+      if (e.target === bg) close(false);
+      const b = e.target.closest('[data-m]'); if (!b) return;
+      close(b.dataset.m === 'ok');
+    });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(bg);
+    bg.querySelector('[data-m=ok]').focus();
+  });
+}
+async function writeAll(){
+  const ch = curChart(), grp = curGroup(); if (!ch || !grp || !S.queue.length) return;
+  if (!(await showConfirm())) return;
+  const btn = $('#writeBtn'); btn.disabled = true; msg('正在写入…');
+  try {
+    let cx = ch.xml; const ctx = detectCtx(cx), { P } = ctx;
+    const gre = new RegExp(`<${reEsc(P)}([A-Za-z0-9]+Chart)(?=[\\s>])[^>]*>[\\s\\S]*?</${reEsc(P)}\\1>`, 'g');
+    const gms = [...cx.matchAll(gre)];
+    const supIdx = ch.info.groups.map((g,i)=>g.supported?i:-1).filter(i=>i>=0)[S.groupSel];
+    const gm = gms[supIdx]; if (!gm) throw new Error('没有找到图表组');
+    let gs = gm[0];
+    const sre = new RegExp(`<${reEsc(P)}ser(?=[\\s>/])[\\s\\S]*?</${reEsc(P)}ser>`, 'g');
+    const sers = [...gs.matchAll(sre)];
+    if (!sers.length) throw new Error('该图表组没有现有系列可作为格式参照');
+    const tplM = sers[S.tplSel >= 0 ? S.tplSel : sers.length-1];
+    const kind = TYPE_KEY[grp.type];
+    let maxIdx = -1, maxOrd = -1;
+    for (const g of ch.info.groups) for (const s of g.sers){ maxIdx = Math.max(maxIdx, s.idx); maxOrd = Math.max(maxOrd, s.order); }
+    const last = sers[sers.length-1], insertAt0 = last.index + last[0].length;
+    let ins = insertAt0, added = '';
+    const width = parseFloat(S.lineW) > 0 ? parseFloat(S.lineW) : 0;
+    for (const [k, it] of S.queue.entries()){
+      const sd = await loadSheetData(sheetObj(it.sheet).path);
+      let colorHex = it.color || null;
+      if (!colorHex && S.colorMode === 'unify') colorHex = S.unifyColor;
+      const ser = buildSer(ctx, tplM[0], kind, it, maxIdx+1+k, maxOrd+1+k, colorHex, width, sd);
+      added += ser;
+    }
+    gs = gs.slice(0, ins) + added + gs.slice(ins);
+    cx = cx.slice(0, gm.index) + gs + cx.slice(gm.index + gm[0].length);
+    parseXml(cx);
+    await putText(ch.path, cx);
+    const total = zip.order.length, touched = zip.order.filter(n=>zip.map.get(n).dirty).length;
+    const blob = buildZip(zip), buf = new Uint8Array(await blob.arrayBuffer());
+    const base = S.name.replace(/\.(xlsx|xlsm)$/i,'').replace(/(_追加系列)+$/,''), outName = `${base}_追加系列.xlsx`;
+    const n = S.queue.length, chartLabel = `${ch.sheet} / ${ch.anchor || '图表 '+ch.n}`, keepSheet = S.dataSheet, keepChart = S.charts.indexOf(ch);
+    S.lastBlob = blob; S.lastName = outName;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = outName; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 20000);
+    await loadBytes(buf, outName);
+    S.queue = []; S.chartSel = keepChart; S.tplSel = -1;
+    await setDataSheet(keepSheet, false);
+    msg(`已向「${esc(chartLabel)}」追加 ${n} 条系列并下载 <b>${esc(outName)}</b>。压缩包内 ${total} 个文件中只改了 ${touched} 个（${esc(ch.path)}），其余原样保留。继续添加会基于这个新文件。`, 'ok');
+  } catch (e) { console.error(e); msg(friendlyErr(e), 'err'); }
+  renderQueue();
+}
+
+/* ───────── 渲染 ───────── */
+function renderAll(){ renderCharts(); renderData(); renderQueue(); }
+
+function renderCharts(){
+  const box = $('#chartList');
+  if (!S.charts.length){ box.innerHTML = '<p class="hint">这个文件里没有找到原生图表。</p>'; $('#chartOpts').innerHTML=''; return; }
+  let html = '', cur = null;
+  S.charts.forEach((c,i) => {
+    if (c.sheet !== cur){ cur = c.sheet; html += `<h3>${esc(cur)}</h3>`; }
+    const ok = c.info.groups.some(g=>g.supported), types = c.info.groups.map(g=>TYPE_LABEL[g.type]||g.type).join(' + ');
+    const sers = c.info.groups.flatMap(g=>g.sers);
+    html += `<label class="chart ${i===S.chartSel?'sel':''} ${ok?'':'off'}"><input type="radio" name="chart" value="${i}" ${ok?'':'disabled'} ${i===S.chartSel?'checked':''}>
+      <div class="ct"><span>${esc(c.anchor || '图表 '+c.n)}</span><span class="ty">${esc(types)}</span></div>
+      <div class="tt">${esc(c.info.title || '（无标题）')}${ok?'':'，暂不支持此类型'}</div>
+      <ul class="sers">${sers.map(s=>`<li><span class="sw ${s.color?'':'auto'}" style="${s.color?'background:'+s.color:''}"></span><span class="nm">${esc(s.name || '（未命名）')}</span></li>`).join('')}</ul></label>`;
+  });
+  box.innerHTML = html;
+  const ch = curChart(), o = $('#chartOpts');
+  if (!ch){ o.innerHTML = ''; return; }
+  const sup = ch.info.groups.filter(g=>g.supported), g = curGroup();
+  const isLineish = g && (g.type === 'line' || g.type === 'scatter');
+  let h = '<h3>格式</h3>';
+  if (sup.length > 1) h += `<div class="row"><label>追加到 <select id="selGroup">${sup.map((x,i)=>`<option value="${i}" ${i===S.groupSel?'selected':''}>${esc(TYPE_LABEL[x.type])}（${x.sers.length} 条系列）</option>`).join('')}</select></label></div>`;
+  h += `<div class="row"><label>参照系列 <select id="selTpl"><option value="-1">最后一条（默认）</option>${g.sers.map((s,i)=>`<option value="${i}" ${i===S.tplSel?'selected':''}>${esc(s.name||'系列'+(i+1))}</option>`).join('')}</select></label></div>
+    <div class="row"><label>线宽 <input type="number" id="lineW" min="0" step="0.25" placeholder="沿用" value="${esc(S.lineW)}"> pt</label></div>`;
+  if (isLineish){
+    h += `<div class="row">
+      <label>默认标记 <select id="defMarker">${MARKER_OPTS.map(o=>`<option value="${o.v}" ${S.defMarker===o.v?'selected':''}>${o.lab}</option>`).join('')}</select></label>
+      <label>默认线型 <select id="defDash">${DASH_OPTS.map(o=>`<option value="${o.v}" ${S.defDash===o.v?'selected':''}>${o.lab}</option>`).join('')}</select></label>
+    </div>`;
+  }
+  h += `<div class="row"><label>颜色
+    <select id="colorMode">
+      <option value="auto" ${S.colorMode==='auto'?'selected':''}>自动顺序</option>
+      <option value="unify" ${S.colorMode==='unify'?'selected':''}>全部统一</option>
+    </select></label>`;
+  if (S.colorMode === 'unify'){
+    h += ` <label class="colorbtn" style="background:${S.unifyColor};width:22px;height:22px;border-radius:4px;border:1px solid rgba(0,0,0,.25);display:inline-block;position:relative;overflow:hidden;vertical-align:middle"><input type="color" id="unifyColor" value="${S.unifyColor}" style="position:absolute;inset:-6px;opacity:0;cursor:pointer;width:40px;height:40px"></label>`;
+  }
+  h += `</div>
+    <p class="hint">新系列默认沿用参照系列样式；可在左侧改默认标记/线型，或在队列里逐条调整。颜色「自动顺序」按 Excel 配色接着排；「全部统一」用同一颜色。数据标签、趋势线和误差线不复制。</p>`;
+  o.innerHTML = h;
+}
+
+function usedCols(){
+  const used = new Map(), g = curGroup(); if (!g) return used;
+  const add = (ref, label) => { if (!ref) return; const m = /^\(?(?:'((?:[^']|'')+)'|([^'!(),]+))!/.exec(ref); const sn = m ? (m[1] ? m[1].replace(/''/g,"'") : m[2]) : ''; if (sn !== S.dataSheet) return;
+    for (const mm of ref.matchAll(/\$([A-Z]+)\$\d+/g)){ const c = colNum(mm[1]); if (!used.has(c)) used.set(c, new Set()); used.get(c).add(label); } };
+  for (const s of g.sers){ add(s.xRef, 'X'); add(s.yRef, 'Y：'+(s.name||'')); }
+  return used;
+}
+const roleOf = c => S.roles.g.includes(c) ? 'g' : S.roles.x===c ? 'x' : S.roles.y.includes(c) ? 'y' : '';
+
+function renderData(){
+  const box = $('#dataBody'), ch = curChart();
+  if (!ch || !S.sd){ box.innerHTML = '<p class="hint">先在左侧选一个图表。</p>'; return; }
+  const sd = S.sd, maxCols = Math.min(sd.maxCol, 200), r0 = S.hdr, rN = sd.maxRow, used = usedCols();
+  const q = (S.colSearch || '').trim().toLowerCase();
+  const visibleCols = [];
+  for (let c=1; c<=maxCols; c++){
+    const role = roleOf(c);
+    if (role) { visibleCols.push(c); continue; } // 已选角色始终显示
+    if (!q) { visibleCols.push(c); continue; }
+    const ht = hdrText(c).toLowerCase(), cn = colName(c).toLowerCase();
+    if (ht.includes(q) || cn === q || cn.includes(q)) visibleCols.push(c);
+  }
+  // 列极多（>80）且无搜索时，优先显示前 60 列 + 已用/已选列；小表全部显示
+  let showCols = visibleCols;
+  if (!q && visibleCols.length > 80){
+    const keep = new Set([...used.keys(), ...S.roles.g, S.roles.x, ...S.roles.y].filter(Boolean));
+    showCols = visibleCols.filter((c,i) => i < 60 || keep.has(c));
+  }
+
+  let h = `<div class="row"><label>数据所在工作表 <select id="selSheet">${S.sheets.map(s=>`<option ${s.name===S.dataSheet?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>
+    <label>表头在第 <input type="number" id="hdr" min="1" value="${S.hdr}"> 行</label>
+    <label class="colsearch">搜列 <input type="text" id="colSearch" placeholder="表头或列号，如 销量 / B" value="${esc(S.colSearch)}"></label></div>
+    <p class="hint">在要用的列上点“组”“X”“Y”。Y 与「组」都可多选；多列「组」会组合成分组键。可用搜列快速定位，下方可加行筛选。</p>`;
+
+  // 行筛选条件
+  h += `<div class="filters"><div class="row" style="margin:0 0 4px;justify-content:space-between"><strong style="font-size:12.5px;color:var(--mute)">行筛选（可选，多条件同时生效）</strong>
+    <button class="btn sm" type="button" data-act="addfilter">＋ 条件</button></div>`;
+  if (!S.filters.length) h += `<p class="hint" style="margin:2px 0">例如：只要「地区 = 华东」且「状态 非空」的行再分组。</p>`;
+  S.filters.forEach((f,i) => {
+    const needVal = f.op !== 'empty' && f.op !== 'notempty';
+    h += `<div class="frow">
+      <select class="fcol" data-act="fcol" data-i="${i}"><option value="">列…</option>${Array.from({length:maxCols},(_,k)=>k+1).map(c=>`<option value="${c}" ${f.col===c?'selected':''}>${colName(c)} ${esc(hdrText(c)).slice(0,12)}</option>`).join('')}</select>
+      <select class="fop" data-act="fop" data-i="${i}">${FILTER_OPS.map(o=>`<option value="${o.v}" ${f.op===o.v?'selected':''}>${o.lab}</option>`).join('')}</select>
+      ${needVal ? `<input type="text" class="fval" data-act="fval" data-i="${i}" value="${esc(f.val||'')}" placeholder="值">` : ''}
+      <button class="x-btn" type="button" data-act="delfilter" data-i="${i}" title="删除">×</button>
+    </div>`;
+  });
+  if (S.filters.length){
+    const areas = activeAreas(S.from, S.to);
+    const nActive = areas.reduce((a,[x,y]) => a + (y-x+1), 0);
+    h += `<p class="hint" style="margin:4px 0 0">当前范围第 ${S.from}–${S.to} 行中，符合条件 <b>${nActive}</b> 行${areas.length>1?`（${areas.length} 段）`:''}。</p>`;
+  }
+  h += `</div>`;
+
+  // 智能建议组列
+  {
+    const sug = suggestGroupCols();
+    if (sug.length) h += `<div class="row"><span class="hint">${S.roles.g.length?'还可组合的列：':'建议作「组」的列：'}</span>${sug.map(s=>`<button class="btn sm" type="button" data-act="role" data-role="g" data-col="${s.col}" title="${s.n} 个不同值">${esc(hdrText(s.col))} <span style="color:var(--mute);font-weight:400">(${s.n})</span></button>`).join('')}</div>`;
+  }
+
+  h += '<div class="gridwrap"><table class="grid"><thead><tr><th class="rn"></th>';
+  for (const c of showCols){
+    const r = roleOf(c), u = used.get(c);
+    const btn = k => { const on = (k==='g'&&S.roles.g.includes(c))||(k==='x'&&S.roles.x===c)||(k==='y'&&S.roles.y.includes(c)); let lab = k==='g'?'组':k==='x'?'X':'Y'; if (k==='g'&&on&&S.roles.g.length>1) lab = '组'+(S.roles.g.indexOf(c)+1); if (k==='y'&&on&&S.roles.y.length>1) lab = 'Y'+(S.roles.y.indexOf(c)+1); return `<button type="button" data-act="role" data-role="${k}" data-col="${c}" class="${on?'on':''}" aria-pressed="${on}">${lab}</button>`; };
+    h += `<th class="${r?'r-'+r:''}"><div class="cl">${colName(c)}${u?`<span class="used" title="图表已在使用：${esc([...u].join('；'))}">已用</span>`:''}</div><div class="ch" title="${esc(hdrText(c))}">${esc(hdrText(c))}</div><div class="rb">${btn('g')}${btn('x')}${btn('y')}</div></th>`;
+  }
+  h += '</tr></thead><tbody>';
+  for (let r=r0+1; r<=rN; r++){
+    const pass = rowPasses(r);
+    h += '<tr' + (pass ? '' : ' style="opacity:.4"') + `><td class="rn">${r}</td>`;
+    for (const c of showCols){ const v = sd.rows.get(r)?.get(c), ro = roleOf(c); h += `<td class="${ro?'r-'+ro:''}">${v===undefined?'':esc(v)}</td>`; }
+    h += '</tr>';
+  }
+  h += '</tbody></table></div>';
+  const hiddenN = maxCols - showCols.length;
+  h += `<p class="hint">预览第 ${r0+1}–${rN} 行（共 ${sd.maxRow} 行）· 显示 ${showCols.length}/${sd.maxCol} 列${hiddenN?`（${hiddenN} 列已隐藏，用搜列查找）`:''}${q?` · 搜索「${esc(S.colSearch)}」`:''}${S.filters.length?` · 淡显行=未通过筛选`:''}。</p>`;
+
+  h += `<h3>行范围与名称</h3><div class="row"><label>从第 <input type="number" id="from" min="1" value="${S.from}"> 行</label><label>到第 <input type="number" id="to" min="1" value="${S.to}"> 行</label>
+    <button class="btn sm" type="button" data-act="autorange" ${S.rangeAuto?'disabled':''}>按 X 列自动</button></div>`;
+  if (S.roles.g.length){
+    const blocks = computeBlocks(), groups = computeGroups(blocks);
+    if (!S.picked) S.picked = new Set(groups.filter(x=>!x.empty).map(x=>x.value));
+    const dups = groups.filter(x=>x.blocks.length>1&&!x.empty);
+    const gq = (S.grpSearch||'').trim().toLowerCase();
+    const shown = gq ? groups.filter(x => (x.value||'').toLowerCase().includes(gq) || (x.empty && '空'.includes(gq))) : groups;
+    h += `<h3>分组：${esc(groupLabel())}（${groups.filter(x=>!x.empty).length} 组${S.roles.g.length>1?' · 组合':''}${S.filters.length?' · 已应用行筛选':''}）</h3>
+      <div class="strip" aria-hidden="true">${blocks.map(b=>{ const gi = groups.findIndex(x=>x.value===b.value); return `<div style="flex:${b.to-b.from+1};background:${b.value===''?'#DDE3E7':hue(gi)}" title="${esc(b.value||'（空）')}：第 ${b.from}–${b.to} 行">${esc(b.value)}</div>`; }).join('')}</div>
+      <div class="row"><button class="btn sm" type="button" data-act="pickall">全选</button><button class="btn sm" type="button" data-act="picknone">全不选</button>
+        <input type="text" class="grpsearch" id="grpSearch" placeholder="搜索分组名…" value="${esc(S.grpSearch||'')}"></div>
+      <table class="gt"><thead><tr><th></th><th>分组</th><th>行</th><th>点数</th></tr></thead><tbody>${shown.map((x)=>{
+        const gi = groups.indexOf(x);
+        return `<tr><td><input type="checkbox" data-act="pick" data-v="${esc(x.value)}" ${S.picked.has(x.value)?'checked':''} aria-label="${esc(x.value||'空')}"></td>
+        <td><span class="sw" style="background:${x.empty?'#DDE3E7':hue(gi)}"></span> ${esc(x.value||'（空）')}</td><td class="rg">${x.blocks.map(b=>b.from===b.to?b.from:b.from+'–'+b.to).join(', ')}</td><td class="num">${x.rows}</td></tr>`;
+      }).join('')}</tbody></table>`;
+    if (gq && !shown.length) h += `<p class="hint">没有匹配「${esc(S.grpSearch)}」的分组。</p>`;
+    if (dups.length) h += `<div class="warn">${dups.map(d=>esc(d.value)).join('、')} 在表里分成了多段。<label><input type="checkbox" id="merge" ${S.merge?'checked':''}> 合并成一条系列（Excel 多区域引用）</label></div>`;
+    h += `<div class="row"><label>系列名称 <input type="text" id="nameTpl" placeholder="${esc(defaultTpl())}" value="${esc(S.nameTpl)}" style="width:14em"></label>
+      ${S.roles.g.length>1?`<label>分隔符 <input type="text" id="grpSep" value="${esc(S.grpSep)}" style="width:4em" title="多列组合时的连接符"></label>`:''}</div>
+      <p class="hint">名称可用 {组}、{Y}、{X}${S.roles.g.length>1?'，多列时还可用 '+S.roles.g.map((_,i)=>'{组'+(i+1)+'}').join('、'):''}。</p>`;
+  } else h += '<p class="hint">没有选“组”时，每个 Y 列追加一条系列，名称链接到表头单元格。行筛选仍会生效。可点多个“组”做组合分组。</p>';
+  h += `<div class="row"><button class="btn primary" type="button" data-act="add" ${S.roles.x==null||!S.roles.y.length?'disabled':''}>加入队列</button></div>`;
+  box.innerHTML = h;
+}
+
+function renderQueue(){
+  const box = $('#queue'), ch = curChart(), grp = curGroup();
+  let base = 0; if (ch) for (const g of ch.info.groups) for (const s of g.sers) base = Math.max(base, s.idx+1);
+  const isLineish = grp && (grp.type === 'line' || grp.type === 'scatter');
+  if (!S.queue.length){
+    box.innerHTML = '<p class="hint">在中间选好数据后点“加入队列”，可以反复加入多批。</p>';
+  } else {
+    const totalPts = S.queue.reduce((a,it) => a + (it.ptCount || 0), 0);
+    const warnN = S.queue.filter(it => it.warn && it.warn.length).length;
+    const sum = `<div class="qsum">共 <b>${S.queue.length}</b> 条系列 · <b>${totalPts}</b> 个数据点${warnN ? ` · <span style="color:var(--warn)">${warnN} 条有警告</span>` : ''}</div>`;
+    box.innerHTML = sum + S.queue.map((it,i)=>{
+      const col = it.color || (S.colorMode === 'unify' ? S.unifyColor : autoHex(base+i));
+      const pts = it.ptCount != null ? `<span class="pts">${it.ptCount} 点</span>` : '';
+      const warn = (it.warn && it.warn.length) ? `<span class="warn-tag" title="${esc(it.warn.join('；'))}">⚠ ${esc(it.warn[0])}</span>` : '';
+      let opts = '';
+      if (isLineish){
+        opts = `<div class="opts">
+          <label>标记 <select data-act="qmarker" data-i="${i}">${MARKER_OPTS.map(o=>`<option value="${o.v}" ${(it.marker||'')===o.v?'selected':''}>${o.lab}</option>`).join('')}</select></label>
+          <label>线型 <select data-act="qdash" data-i="${i}">${DASH_OPTS.map(o=>`<option value="${o.v}" ${(it.dash||'')===o.v?'selected':''}>${o.lab}</option>`).join('')}</select></label>
+        </div>`;
+      }
+      return `<div class="q"><div class="l1"><label class="colorbtn" style="background:${col}" title="点击改颜色"><input type="color" data-act="qcolor" data-i="${i}" value="${col.length===7?col:'#888888'}"></label>
+        <input type="text" data-act="qname" data-i="${i}" value="${esc(it.name)}" aria-label="系列名称"><button class="x-btn" data-act="qdel" data-i="${i}" title="移除" aria-label="移除">×</button></div>
+        <div class="meta">${pts}${warn}</div>${opts}
+        <div class="rf">X ${esc(refOf(it.sheet,it.xCol,it.areas))}<br>Y ${esc(refOf(it.sheet,it.yCol,it.areas))}</div></div>`;
+    }).join('');
+  }
+  $('#writeBtn').disabled = !S.queue.length || !ch; $('#clearBtn').disabled = !S.queue.length;
+  $('#writeBtn').textContent = ch ? `写入「${(ch.anchor||'图表 '+ch.n)}」并下载` : '写入图表并下载';
+}
+
+/* ───────── 事件 ───────── */
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return; const act = b.dataset.act;
+  if (act === 'role'){
+    const c = +b.dataset.col, k = b.dataset.role, R = S.roles;
+    if (k==='g'){
+      if (R.g.includes(c)) R.g = R.g.filter(v=>v!==c);
+      else { R.g.push(c); if (R.x===c) R.x = null; R.y = R.y.filter(v=>v!==c); }
+    }
+    if (k==='x'){ R.x = R.x===c ? null : c; if (R.x!=null){ R.g = R.g.filter(v=>v!==c); R.y = R.y.filter(v=>v!==c); } }
+    if (k==='y'){ if (R.y.includes(c)) R.y = R.y.filter(v=>v!==c); else { R.y.push(c); R.g = R.g.filter(v=>v!==c); if (R.x===c) R.x = null; } }
+    S.picked = null; if (S.rangeAuto) autoRange(); renderData();
+  } else if (act === 'autorange'){ S.rangeAuto = true; S.picked = null; autoRange(); renderData(); }
+  else if (act === 'pickall'){
+    const groups = computeGroups(computeBlocks());
+    const gq = (S.grpSearch||'').trim().toLowerCase();
+    const list = gq ? groups.filter(x => (x.value||'').toLowerCase().includes(gq)) : groups;
+    if (!S.picked) S.picked = new Set();
+    list.filter(x=>!x.empty).forEach(x => S.picked.add(x.value));
+    renderData();
+  }
+  else if (act === 'picknone'){
+    const gq = (S.grpSearch||'').trim().toLowerCase();
+    if (gq && S.picked){
+      const groups = computeGroups(computeBlocks());
+      groups.filter(x => (x.value||'').toLowerCase().includes(gq)).forEach(x => S.picked.delete(x.value));
+    } else S.picked = new Set();
+    renderData();
+  }
+  else if (act === 'add') addToQueue();
+  else if (act === 'qdel'){ S.queue.splice(+b.dataset.i,1); renderQueue(); }
+  else if (act === 'addfilter'){ S.filters.push({ col:0, op:'eq', val:'' }); S.picked = null; renderData(); }
+  else if (act === 'delfilter'){ S.filters.splice(+b.dataset.i,1); S.picked = null; renderData(); }
+});
+document.addEventListener('change', async e => {
+  const t = e.target;
+  if (t.name === 'chart'){ await selectChart(+t.value); return; }
+  if (t.id === 'selGroup'){ S.groupSel = +t.value; S.tplSel = -1; renderCharts(); renderData(); renderQueue(); }
+  else if (t.id === 'selTpl'){ S.tplSel = +t.value; }
+  else if (t.id === 'selSheet'){ await setDataSheet(t.value, true); }
+  else if (t.id === 'hdr'){ S.hdr = Math.max(1, +t.value||1); S.picked = null; if (S.rangeAuto) autoRange(); renderData(); }
+  else if (t.id === 'from' || t.id === 'to'){ S[t.id] = Math.max(1, +t.value||1); S.rangeAuto = false; S.picked = null; renderData(); }
+  else if (t.id === 'merge'){ S.merge = t.checked; }
+  else if (t.id === 'defMarker'){ S.defMarker = t.value; }
+  else if (t.id === 'defDash'){ S.defDash = t.value; }
+  else if (t.id === 'colorMode'){
+    S.colorMode = t.value;
+    if (S.colorMode === 'unify'){
+      for (const it of S.queue) if (!it.color) it.color = S.unifyColor;
+    }
+    renderCharts(); renderQueue();
+  }
+  else if (t.id === 'unifyColor'){
+    S.unifyColor = t.value;
+    if (S.colorMode === 'unify'){ for (const it of S.queue) it.color = t.value; renderQueue(); }
+    else renderCharts();
+  }
+  else if (t.dataset.act === 'pick'){ t.checked ? S.picked.add(t.dataset.v) : S.picked.delete(t.dataset.v); }
+  else if (t.dataset.act === 'qcolor'){ S.queue[+t.dataset.i].color = t.value; renderQueue(); }
+  else if (t.dataset.act === 'qmarker'){ S.queue[+t.dataset.i].marker = t.value; }
+  else if (t.dataset.act === 'qdash'){ S.queue[+t.dataset.i].dash = t.value; }
+  else if (t.dataset.act === 'fcol'){ S.filters[+t.dataset.i].col = +t.value || 0; S.picked = null; renderData(); }
+  else if (t.dataset.act === 'fop'){
+    S.filters[+t.dataset.i].op = t.value; S.picked = null; renderData();
+  }
+  else if (t.dataset.act === 'fval'){ S.filters[+t.dataset.i].val = t.value; S.picked = null; renderData(); }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id === 'lineW') S.lineW = t.value;
+  else if (t.id === 'nameTpl') S.nameTpl = t.value;
+  else if (t.id === 'grpSep'){ S.grpSep = t.value; S.picked = null; renderData(); const el = $('#grpSep'); if (el){ el.focus(); el.selectionStart = el.selectionEnd = el.value.length; } }
+  else if (t.id === 'colSearch'){ S.colSearch = t.value; renderData(); const el = $('#colSearch'); if (el){ el.focus(); el.selectionStart = el.selectionEnd = el.value.length; } }
+  else if (t.id === 'grpSearch'){ S.grpSearch = t.value; renderData(); const el = $('#grpSearch'); if (el){ el.focus(); el.selectionStart = el.selectionEnd = el.value.length; } }
+  else if (t.id === 'unifyColor'){
+    S.unifyColor = t.value;
+    if (S.colorMode === 'unify'){ for (const it of S.queue) it.color = t.value; renderQueue(); }
+  }
+  else if (t.dataset.act === 'qname') S.queue[+t.dataset.i].name = t.value;
+  else if (t.dataset.act === 'qcolor'){ S.queue[+t.dataset.i].color = t.value; const btn = t.closest('.colorbtn'); if (btn) btn.style.background = t.value; }
+  else if (t.dataset.act === 'fval'){ S.filters[+t.dataset.i].val = t.value; }
+});
+$('#writeBtn').addEventListener('click', writeAll);
+$('#clearBtn').addEventListener('click', () => { S.queue = []; renderQueue(); msg(''); });
+$('#file').addEventListener('change', e => { const f = e.target.files[0]; if (f) openFile(f); e.target.value = ''; });
+for (const ev of ['dragenter','dragover']) document.addEventListener(ev, e => { e.preventDefault(); document.body.classList.add('drag'); });
+for (const ev of ['dragleave','drop']) document.addEventListener(ev, e => { e.preventDefault(); if (ev==='drop' || e.target===document.documentElement) document.body.classList.remove('drag'); });
+document.addEventListener('drop', e => { const f = e.dataTransfer?.files?.[0]; if (f) openFile(f); });
+})();
+</script>
+</body>
+</html>
